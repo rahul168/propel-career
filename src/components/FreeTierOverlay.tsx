@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 
-export function FreeTierOverlay() {
+interface FreeTierOverlayProps {
+  onBuyCredits?: () => void;
+}
+
+export function FreeTierOverlay({ onBuyCredits }: FreeTierOverlayProps) {
   return (
     <div className="relative">
       {/* Blurred background content */}
@@ -30,7 +34,8 @@ export function FreeTierOverlay() {
           </p>
           <Link
             href="/pricing"
-            className="block bg-white text-blue-700 font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-50 transition-colors"
+            onClick={() => onBuyCredits?.()}
+            className="block bg-white text-blue-700 font-semibold px-6 py-2.5 rounded-lg shadow-sm hover:bg-blue-50 hover:-translate-y-px hover:shadow-md transition-all duration-150 active:scale-[0.98]"
           >
             Buy Credits →
           </Link>

@@ -123,10 +123,10 @@ export default function PricingPage() {
             {plan.ctaHref ? (
               <Link
                 href={plan.ctaHref}
-                className={`block text-center py-2.5 px-4 rounded-lg font-semibold transition-colors ${
+                className={`block text-center py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-150 active:scale-[0.98] shadow-sm ${
                   plan.highlight
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-blue-600 text-white hover:bg-blue-700 hover:-translate-y-px hover:shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
                 }`}
               >
                 {plan.cta}
@@ -135,13 +135,13 @@ export default function PricingPage() {
               <button
                 onClick={() => handleBuy(plan.id as "starter" | "pro")}
                 disabled={loading === plan.id}
-                className={`py-2.5 px-4 rounded-lg font-semibold transition-colors ${
+                className={`w-full py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-150 active:scale-[0.98] shadow-sm disabled:opacity-40 disabled:pointer-events-none ${
                   plan.highlight
-                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                } disabled:opacity-50`}
+                    ? "bg-blue-600 text-white hover:bg-blue-700 hover:-translate-y-px hover:shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
+                }`}
               >
-                {loading === plan.id ? "Loading..." : plan.cta}
+                {loading === plan.id ? "Loading…" : plan.cta}
               </button>
             )}
           </div>

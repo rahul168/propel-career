@@ -1,23 +1,19 @@
 interface StepIndicatorProps {
   currentStep: number;
-  hasPaid: boolean;
 }
 
-const FREE_STEPS = ["Upload Resume", "Job Description", "Analyzing", "Results"];
-const PAID_STEPS = ["Upload Resume", "Job Description", "Analyzing", "Results", "Download"];
+const STEPS = ["Upload Resume", "Job Description", "Analyzing", "Results", "Review", "Download"];
 
-export function StepIndicator({ currentStep, hasPaid }: StepIndicatorProps) {
-  const steps = hasPaid ? PAID_STEPS : FREE_STEPS;
-
+export function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (
-    <div className="flex items-center justify-center mb-8">
-      {steps.map((label, index) => {
+    <div className="flex items-start justify-center mb-8">
+      {STEPS.map((label, index) => {
         const stepNum = index + 1;
         const isCompleted = stepNum < currentStep;
         const isCurrent = stepNum === currentStep;
 
         return (
-          <div key={label} className="flex items-center">
+          <div key={label} className="flex items-start">
             <div className="flex flex-col items-center">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
@@ -38,9 +34,9 @@ export function StepIndicator({ currentStep, hasPaid }: StepIndicatorProps) {
                 {label}
               </span>
             </div>
-            {index < steps.length - 1 && (
+            {index < STEPS.length - 1 && (
               <div
-                className={`h-0.5 w-12 mx-1 mb-4 ${isCompleted ? "bg-green-500" : "bg-gray-200"}`}
+                className={`h-0.5 w-12 mx-1 mt-4 ${isCompleted ? "bg-green-500" : "bg-gray-200"}`}
               />
             )}
           </div>

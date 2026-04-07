@@ -36,10 +36,10 @@ export function SuggestionCard({ suggestion, onToggle, onEdit }: SuggestionCardP
         </span>
         <button
           onClick={() => onToggle(id)}
-          className={`flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full transition-colors ${
+          className={`inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full shadow-sm transition-all duration-150 active:scale-95 ${
             accepted
-              ? "bg-green-500 text-white hover:bg-green-600"
-              : "bg-gray-300 text-gray-600 hover:bg-gray-400"
+              ? "bg-emerald-500 text-white hover:bg-emerald-600 hover:shadow"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
           }`}
         >
           {accepted ? (

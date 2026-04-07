@@ -46,16 +46,16 @@ export async function Navbar() {
               </>
             ) : (
               <>
-                <Link href="/analyze" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/analyze" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
                   Optimizer
                 </Link>
-                <Link href="/account" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/account" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
                   My Account
                 </Link>
-                <Link href="/pricing" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
                   Pricing
                 </Link>
-                <Link href="/api-docs" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/api-docs" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
                   API Docs
                 </Link>
                 <span
@@ -67,7 +67,10 @@ export async function Navbar() {
               </>
             )
           ) : (
-            <Link href="/sign-in" className="text-sm font-medium text-blue-600 hover:text-blue-800">
+            <Link
+              href="/sign-in"
+              className="text-sm font-semibold text-white bg-blue-600 px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 hover:-translate-y-px hover:shadow-md transition-all duration-150 active:scale-[0.98]"
+            >
               Sign In
             </Link>
           )}

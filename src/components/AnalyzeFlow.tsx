@@ -14,7 +14,7 @@ import { FreeTierOverlay } from "./FreeTierOverlay";
 import { Button } from "./ui/button";
 import type { MatchAnalysis, Suggestion } from "@/types";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 type ResumeVersionMeta = {
   id: string;
@@ -42,6 +42,10 @@ interface AnalysisState {
   modifiedDocxBase64: string;
   /** Whether we are currently fetching the modified DOCX for step 5 */
   isFetchingPreview: boolean;
+  /** Finalized DOCX saved when user clicks "Finalize resume" — used for step 6 downloads */
+  finalizedDocxBase64: string;
+  /** True while fetching suggestions after returning from credit purchase */
+  isFetchingSuggestions: boolean;
 }
 
 type Action =
@@ -61,7 +65,12 @@ type Action =
   | { type: "SET_STEP"; step: Step }
   | { type: "FETCH_PREVIEW_START" }
   | { type: "FETCH_PREVIEW_DONE"; modifiedDocxBase64: string }
-  | { type: "FETCH_PREVIEW_ERROR" };
+  | { type: "FETCH_PREVIEW_ERROR" }
+  | { type: "SET_FINALIZED"; finalizedDocxBase64: string }
+  | { type: "RESTORE_FROM_SESSION"; resumeText: string; fileName: string; docxBase64: string; projectId: string; jobDescription: string; matchAnalysis: MatchAnalysis }
+  | { type: "FETCH_SUGGESTIONS_START" }
+  | { type: "FETCH_SUGGESTIONS_DONE"; suggestions: Suggestion[] }
+  | { type: "FETCH_SUGGESTIONS_ERROR" };
 
 const initialState: AnalysisState = {
   currentStep: 1,
@@ -78,6 +87,8 @@ const initialState: AnalysisState = {
   error: null,
   modifiedDocxBase64: "",
   isFetchingPreview: false,
+  finalizedDocxBase64: "",
+  isFetchingSuggestions: false,
 };
 
 function reducer(state: AnalysisState, action: Action): AnalysisState {
@@ -155,15 +166,39 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
               isFetchingVersions: false,
               matchAnalysis: null,
               suggestions: [],
+              finalizedDocxBase64: "",
+              isFetchingSuggestions: false,
             }
           : {}),
       };
+    case "SET_FINALIZED":
+      return { ...state, finalizedDocxBase64: action.finalizedDocxBase64, currentStep: 6 };
     case "FETCH_PREVIEW_START":
       return { ...state, isFetchingPreview: true };
     case "FETCH_PREVIEW_DONE":
       return { ...state, isFetchingPreview: false, modifiedDocxBase64: action.modifiedDocxBase64 };
     case "FETCH_PREVIEW_ERROR":
       return { ...state, isFetchingPreview: false };
+    case "RESTORE_FROM_SESSION":
+      return {
+        ...state,
+        resumeText: action.resumeText,
+        fileName: action.fileName,
+        docxBase64: action.docxBase64,
+        projectId: action.projectId,
+        jobDescription: action.jobDescription,
+        matchAnalysis: action.matchAnalysis,
+        suggestions: [],
+        currentStep: 4,
+        isLoading: false,
+        isFetchingSuggestions: false,
+      };
+    case "FETCH_SUGGESTIONS_START":
+      return { ...state, isFetchingSuggestions: true };
+    case "FETCH_SUGGESTIONS_DONE":
+      return { ...state, isFetchingSuggestions: false, suggestions: action.suggestions };
+    case "FETCH_SUGGESTIONS_ERROR":
+      return { ...state, isFetchingSuggestions: false };
     default:
       return state;
   }
@@ -211,7 +246,7 @@ function BackButton({ onClick, children }: { onClick: () => void; children: Reac
   return (
     <button
       onClick={onClick}
-      className="text-sm text-gray-500 hover:text-gray-800 hover:underline transition-colors"
+      className="inline-flex items-center gap-1 text-sm font-medium text-gray-400 hover:text-gray-700 transition-colors duration-150"
     >
       ← {children}
     </button>
@@ -230,6 +265,7 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
   const analysisAbortRef = useRef<AbortController | null>(null);
   const [isUploadedPreviewOpen, setIsUploadedPreviewOpen] = useState(false);
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
+  const [isDownloadVersionsOpen, setIsDownloadVersionsOpen] = useState(false);
   const [versionPreview, setVersionPreview] = useState<{
     open: boolean;
     title: string;
@@ -356,6 +392,70 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStep, state.modifiedDocxBase64, state.isFetchingPreview]);
 
+  const SESSION_KEY = "propel_resume_flow";
+
+  // Restore in-progress analysis from sessionStorage (set before the user left to buy credits)
+  useEffect(() => {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw) as {
+        resumeText: string;
+        fileName: string;
+        docxBase64: string;
+        projectId: string;
+        jobDescription: string;
+        matchAnalysis: MatchAnalysis;
+      };
+      dispatch({ type: "RESTORE_FROM_SESSION", ...data });
+      if (hasPaid) {
+        sessionStorage.removeItem(SESSION_KEY);
+        dispatch({ type: "FETCH_SUGGESTIONS_START" });
+        fetch("/api/suggest-improvements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resumeText: data.resumeText, jobDescription: data.jobDescription }),
+        })
+          .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+          .then((json) =>
+            dispatch({
+              type: "FETCH_SUGGESTIONS_DONE",
+              suggestions: (json as { suggestions: Suggestion[] }).suggestions ?? [],
+            })
+          )
+          .catch(() => {
+            dispatch({ type: "FETCH_SUGGESTIONS_ERROR" });
+            toast.error("Failed to load suggestions — please refresh.");
+          });
+        if (data.projectId) void refreshVersions(data.projectId);
+      }
+      // If still free tier: keep session in storage for the next purchase attempt
+    } catch {
+      sessionStorage.removeItem(SESSION_KEY);
+    }
+  // hasPaid is a stable server-determined prop at mount time
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSaveFlowForResume = useCallback(() => {
+    if (!state.matchAnalysis) return;
+    try {
+      sessionStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          resumeText: state.resumeText,
+          fileName: state.fileName,
+          docxBase64: state.docxBase64,
+          projectId: state.projectId,
+          jobDescription: state.jobDescription,
+          matchAnalysis: state.matchAnalysis,
+        })
+      );
+    } catch {
+      // sessionStorage unavailable or full — user will restart normally
+    }
+  }, [state.resumeText, state.fileName, state.docxBase64, state.projectId, state.jobDescription, state.matchAnalysis]);
+
   const handleUpload = useCallback(
     (text: string, fileName: string, docxBase64: string) => {
       dispatch({ type: "SET_RESUME", text, fileName, docxBase64 });
@@ -406,72 +506,6 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
     }
   }, [state.resumeText, state.jobDescription, hasPaid]);
 
-  // Downloads the current state of the right editor — captures any inline edits the user made
-  const handleDownload = useCallback(
-    async (format: "docx" | "pdf") => {
-      const buffer = await rightEditorRef.current?.save();
-      if (!buffer) {
-        toast.error("Editor not ready");
-        return;
-      }
-
-      if (format === "docx") {
-        triggerBlobDownload(
-          new Blob([buffer], {
-            type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          }),
-          "optimized-resume.docx"
-        );
-        toast.success("Resume downloaded!");
-        return;
-      }
-
-      // PDF: send the edited DOCX buffer (as base64) to the server for conversion
-      try {
-        const res = await fetch("/api/generate-resume", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            resumeText: state.resumeText,
-            // Suggestions already baked into the buffer — none to apply
-            acceptedSuggestions: [],
-            docxBase64: arrayBufferToBase64(buffer),
-            format: "pdf",
-          }),
-        });
-        if (!res.ok) throw new Error("PDF generation failed");
-        triggerBlobDownload(await res.blob(), "optimized-resume.pdf");
-        toast.success("Resume downloaded!");
-      } catch {
-        toast.error("Failed to generate PDF");
-      }
-    },
-    [state.resumeText]
-  );
-
-  const handleSaveNewVersion = useCallback(async () => {
-    if (!state.projectId) {
-      toast.error("Version history not ready yet");
-      return;
-    }
-    const buffer = await rightEditorRef.current?.save();
-    if (!buffer) {
-      toast.error("Editor not ready");
-      return;
-    }
-    try {
-      await saveDocxBase64AsNewVersion({
-        projectId: state.projectId,
-        originalFileName: state.fileName,
-        docxBase64: arrayBufferToBase64(buffer),
-        source: "manualSave",
-      });
-      toast.success("Saved a new version");
-    } catch {
-      toast.error("Failed to save version");
-    }
-  }, [saveDocxBase64AsNewVersion, state.fileName, state.projectId]);
-
   const handleOptimizeAgain = useCallback(async () => {
     if (!state.projectId) {
       toast.error("Version history not ready yet");
@@ -509,11 +543,73 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
     }
   }, [saveDocxBase64AsNewVersion, state.fileName, state.projectId]);
 
+  const handleFinalizeResume = useCallback(async () => {
+    if (!state.projectId) {
+      toast.error("Version history not ready yet");
+      return;
+    }
+    const buffer = await rightEditorRef.current?.save();
+    if (!buffer) {
+      toast.error("Editor not ready");
+      return;
+    }
+    const docxBase64 = arrayBufferToBase64(buffer);
+    try {
+      await saveDocxBase64AsNewVersion({
+        projectId: state.projectId,
+        originalFileName: state.fileName,
+        docxBase64,
+        source: "finalize",
+      });
+      dispatch({ type: "SET_FINALIZED", finalizedDocxBase64: docxBase64 });
+    } catch {
+      toast.error("Failed to finalize resume");
+    }
+  }, [saveDocxBase64AsNewVersion, state.fileName, state.projectId]);
+
+  const handleDownloadFinalized = useCallback(
+    async (format: "docx" | "pdf") => {
+      if (!state.finalizedDocxBase64) {
+        toast.error("Finalized resume not ready");
+        return;
+      }
+      if (format === "docx") {
+        const buffer = base64ToArrayBuffer(state.finalizedDocxBase64);
+        triggerBlobDownload(
+          new Blob([buffer], {
+            type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          }),
+          "optimized-resume.docx"
+        );
+        toast.success("Resume downloaded!");
+        return;
+      }
+      try {
+        const res = await fetch("/api/generate-resume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resumeText: state.resumeText,
+            acceptedSuggestions: [],
+            docxBase64: state.finalizedDocxBase64,
+            format: "pdf",
+          }),
+        });
+        if (!res.ok) throw new Error("PDF generation failed");
+        triggerBlobDownload(await res.blob(), "optimized-resume.pdf");
+        toast.success("Resume downloaded!");
+      } catch {
+        toast.error("Failed to generate PDF");
+      }
+    },
+    [state.finalizedDocxBase64, state.resumeText]
+  );
+
   const acceptedCount = state.suggestions.filter((s) => s.accepted).length;
 
   return (
     <div className="px-4 py-8">
-      <StepIndicator currentStep={state.currentStep} hasPaid={hasPaid} />
+      <StepIndicator currentStep={state.currentStep} />
 
       {/* Step 1 — Upload */}
       {state.currentStep === 1 && (
@@ -807,20 +903,33 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
               <div className="bg-white border rounded-xl p-6 mb-6">
                 <MatchScore analysis={state.matchAnalysis} />
               </div>
-              <h3 className="text-lg font-semibold mb-4">
-                Improvement Suggestions ({acceptedCount} of {state.suggestions.length} accepted)
-              </h3>
-              <div className="space-y-4 mb-6">
-                {state.suggestions.map((suggestion) => (
-                  <SuggestionCard
-                    key={suggestion.id}
-                    suggestion={suggestion}
-                    onToggle={(id) => dispatch({ type: "TOGGLE_SUGGESTION", id })}
-                    onEdit={(id, suggested) => dispatch({ type: "EDIT_SUGGESTION", id, suggested })}
-                  />
-                ))}
-              </div>
-              <Button onClick={() => dispatch({ type: "NEXT_STEP" })} className="w-full">
+              {state.isFetchingSuggestions ? (
+                <div className="flex items-center gap-3 py-8 text-gray-400 text-sm">
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  Loading your personalized suggestions…
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold mb-4">
+                    Improvement Suggestions ({acceptedCount} of {state.suggestions.length} accepted)
+                  </h3>
+                  <div className="space-y-4 mb-6">
+                    {state.suggestions.map((suggestion) => (
+                      <SuggestionCard
+                        key={suggestion.id}
+                        suggestion={suggestion}
+                        onToggle={(id) => dispatch({ type: "TOGGLE_SUGGESTION", id })}
+                        onEdit={(id, suggested) => dispatch({ type: "EDIT_SUGGESTION", id, suggested })}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+              <Button
+                onClick={() => dispatch({ type: "NEXT_STEP" })}
+                className="w-full"
+                disabled={state.isFetchingSuggestions}
+              >
                 Generate Optimized Resume →
               </Button>
             </>
@@ -828,23 +937,23 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
             <>
               <MatchCategoryBadge score={state.matchAnalysis.score} />
               <div className="mt-6">
-                <FreeTierOverlay />
+                <FreeTierOverlay onBuyCredits={handleSaveFlowForResume} />
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* Step 5 — Side-by-side DOCX editor (paid only) */}
+      {/* Step 5 — Review (paid only) */}
       {state.currentStep === 5 && hasPaid && (
         <div className="flex flex-col gap-4">
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold">Generate Optimized Resume</h2>
+              <h2 className="text-2xl font-bold">Review Optimized Resume</h2>
               <p className="text-sm text-gray-500 mt-1">
                 {acceptedCount} improvement{acceptedCount === 1 ? "" : "s"} applied.
-                Edit the optimized document directly before downloading.
+                Edit the optimized document directly, then optimize again or finalize.
               </p>
             </div>
             <BackButton onClick={() => dispatch({ type: "SET_STEP", step: 4 })}>
@@ -877,16 +986,8 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
             </div>
           )}
 
-          {/* Download + flywheel buttons */}
+          {/* Action buttons */}
           <div className="flex flex-wrap gap-3 justify-end pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void handleSaveNewVersion()}
-              disabled={!modifiedBuffer || !state.projectId}
-            >
-              Save as new version
-            </Button>
             <Button
               type="button"
               variant="outline"
@@ -896,19 +997,180 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
               Optimize again →
             </Button>
             <Button
-              onClick={() => handleDownload("docx")}
-              disabled={!modifiedBuffer}
+              onClick={() => void handleFinalizeResume()}
+              disabled={!modifiedBuffer || !state.projectId}
             >
-              Download DOCX
-            </Button>
-            <Button
-              onClick={() => handleDownload("pdf")}
-              variant="outline"
-              disabled={!modifiedBuffer}
-            >
-              Download PDF
+              Finalize resume →
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Step 6 — Download (paid only) */}
+      {state.currentStep === 6 && hasPaid && (
+        <div className="flex flex-col gap-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Download Your Resume</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Your finalized resume is ready. Download it in your preferred format.
+              </p>
+            </div>
+            <BackButton onClick={() => dispatch({ type: "SET_STEP", step: 5 })}>
+              Back to review
+            </BackButton>
+          </div>
+
+          {/* Previous versions panel */}
+          {state.projectId && (
+            <div className="border border-gray-200 rounded-xl p-4 bg-white">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsDownloadVersionsOpen((v) => !v)}
+                    className="flex items-center gap-2 text-left"
+                  >
+                    <span className="text-sm font-semibold">Previous versions</span>
+                    <span className="text-xs text-gray-400">({state.versions.length})</span>
+                    <span className="text-xs text-gray-500">
+                      {isDownloadVersionsOpen ? "Hide" : "Show"}
+                    </span>
+                  </button>
+                  <p className="text-xs text-gray-500">Download or preview any version you've generated.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void refreshVersions(state.projectId)}
+                  disabled={state.isFetchingVersions}
+                >
+                  {state.isFetchingVersions ? "Refreshing…" : "Refresh"}
+                </Button>
+              </div>
+
+              {isDownloadVersionsOpen && (
+                <>
+                  {state.versions.length === 0 ? (
+                    <p className="text-sm text-gray-500">No versions yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {state.versions.map((v) => (
+                        <div
+                          key={v.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {v.label} <span className="text-xs text-gray-400">• run {v.runNumber}</span>
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {new Date(v.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={async () => {
+                                const res = await fetch(`/api/resume-versions/${v.id}/docx`);
+                                if (!res.ok) { toast.error("Failed to download DOCX"); return; }
+                                const ab = await res.arrayBuffer();
+                                triggerBlobDownload(
+                                  new Blob([ab], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }),
+                                  toDocxDownloadName(v.originalFileName)
+                                );
+                              }}
+                            >
+                              DOCX
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={async () => {
+                                const res = await fetch(`/api/resume-versions/${v.id}/pdf`);
+                                if (!res.ok) {
+                                  toast.error(res.status === 402 ? "Insufficient credits for PDF" : "Failed to download PDF");
+                                  return;
+                                }
+                                const blob = await res.blob();
+                                triggerBlobDownload(blob, toDocxDownloadName(v.originalFileName).replace(/\.docx$/i, ".pdf"));
+                              }}
+                            >
+                              PDF
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={async () => {
+                                const res = await fetch(`/api/resume-versions/${v.id}/docx`);
+                                if (!res.ok) { toast.error("Failed to load preview"); return; }
+                                const ab = await res.arrayBuffer();
+                                setVersionPreview({ open: true, title: v.label, fileName: toDocxDownloadName(v.originalFileName), buffer: ab });
+                              }}
+                            >
+                              View
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Final download buttons */}
+          <div className="border border-gray-200 rounded-xl p-6 bg-white">
+            <h3 className="text-lg font-semibold mb-1">Download Final Version</h3>
+            <p className="text-sm text-gray-500 mb-4">Download your finalized resume.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => void handleDownloadFinalized("docx")} disabled={!state.finalizedDocxBase64}>
+                Download DOCX
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void handleDownloadFinalized("pdf")}
+                disabled={!state.finalizedDocxBase64}
+              >
+                Download PDF
+              </Button>
+            </div>
+          </div>
+
+          {versionPreview.open && versionPreviewBuffer && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setVersionPreview({ open: false, title: "", fileName: "", buffer: null });
+              }}
+            >
+              <div className="w-full max-w-5xl rounded-xl bg-white shadow-lg border overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{versionPreview.title} preview</p>
+                    <p className="text-xs text-gray-500 truncate">{versionPreview.fileName}</p>
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => setVersionPreview({ open: false, title: "", fileName: "", buffer: null })}>
+                    Close
+                  </Button>
+                </div>
+                <div className="overflow-x-auto">
+                  <div style={{ minWidth: "816px" }}>
+                    <DocxEditor
+                      documentBuffer={versionPreviewBuffer}
+                      mode="viewing"
+                      readOnly
+                      showToolbar={false}
+                      documentNameEditable={false}
+                      style={{ height: "70vh" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

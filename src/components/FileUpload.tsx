@@ -71,7 +71,7 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
         </div>
         <button
           onClick={() => setUploadedFile(null)}
-          className="text-green-600 hover:text-green-800"
+          className="p-1.5 rounded-lg text-green-600 hover:bg-green-100 hover:text-green-800 transition-all duration-150 active:scale-95"
         >
           <X className="h-5 w-5" />
         </button>

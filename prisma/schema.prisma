@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String       @id
+  email       String       @unique
+  credits     Int          @default(0)
+  createdAt   DateTime     @default(now())
+  purchases   Purchase[]
+  usageEvents UsageEvent[]
+  resumeProjects ResumeProject[]
+  resumeVersions ResumeVersion[]
+}
+
+model Purchase {
+  id              String   @id @default(cuid())
+  userId          String
+  stripeSessionId String   @unique
+  creditsAdded    Int
+  amountPaid      Int
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model UsageEvent {
+  id         String    @id @default(cuid())
+  userId     String
+  feature    String
+  statusCode Int
+  durationMs Int
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id])
+  llmUsage   LlmUsage?
+}
+
+model LlmUsage {
+  id            String     @id @default(cuid())
+  usageEventId  String     @unique
+  provider      String
+  model         String
+  operation     String
+  inputTokens   Int
+  outputTokens  Int
+  totalTokens   Int
+  costUsdMicros Int
+  createdAt     DateTime   @default(now())
+  usageEvent    UsageEvent @relation(fields: [usageEventId], references: [id])
+}
+
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  adminUserId  String
+  adminEmail   String
+  action       String
+  targetUserId String
+  targetEmail  String
+  detail       String
+  createdAt    DateTime @default(now())
+}
+
+model ResumeProject {
+  id         String         @id @default(cuid())
+  userId     String
+  title      String?
+  createdAt  DateTime       @default(now())
+
+  user       User           @relation(fields: [userId], references: [id])
+  versions   ResumeVersion[]
+
+  @@index([userId, createdAt])
+}
+
+model ResumeVersion {
+  id               String        @id @default(cuid())
+  userId           String
+  projectId        String
+  runNumber        Int
+  label            String
+  source           String
+  originalFileName String
+  docxBytes        Bytes
+  createdAt        DateTime      @default(now())
+
+  user             User          @relation(fields: [userId], references: [id])
+  project          ResumeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, runNumber])
+  @@index([userId, createdAt])
+}

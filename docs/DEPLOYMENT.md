@@ -32,17 +32,11 @@ After rotating, overwrite `.env.example` with placeholder values only (e.g. `sk-
 
 ## Step 1: Prepare the Codebase
 
-### 1.1 Update Prisma Schema for Supabase Connection Pooling
+### 1.1 Configure Supabase Connection URLs
 
-Supabase provides two connection URLs: a **pooler URL** (for the app at runtime) and a **direct URL** (for migrations). Update `prisma/schema.prisma` to use both:
+Supabase provides two connection URLs: a **pooler URL** (for the app at runtime) and a **direct URL** (for migrations). Both are configured via `prisma.config.js` — no schema changes needed. Just set the two environment variables (see Step 6.3).
 
-```diff
- datasource db {
-   provider = "postgresql"
-+  url      = env("DATABASE_URL")
-+  directUrl = env("DIRECT_URL")
- }
-```
+`prisma.config.js` already handles the fallback — if `DIRECT_URL` is not set, it falls back to `DATABASE_URL`, so local dev works with a single URL.
 
 ### 1.2 Create `vercel.json` for Extended Function Timeouts
 
@@ -82,40 +76,46 @@ Fix any TypeScript or lint errors before deploying.
 
 ### 2.2 Get Your Connection Strings
 
-1. In the Supabase dashboard go to **Settings → Database → Connection string**
+1. In the Supabase dashboard go to **Project Settings → Database → Connection string**
 2. You need **two** URLs:
 
    **`DATABASE_URL`** — Transaction pooler (used by the app at runtime)
    - Select the **Transaction** pooler tab
-   - Copy the URI (uses port `6543`)
+   - Copy the URI (port `6543`)
    - Replace `[YOUR-PASSWORD]` with your actual DB password
-   - Append `?pgbouncer=true` if not already present
 
    ```
-   postgresql://postgres.xxxx:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+   postgresql://postgres.xxxx:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
    ```
 
-   **`DIRECT_URL`** — Direct connection (used by `prisma migrate`)
-   - Select the **Direct connection** tab
-   - Copy the URI (uses port `5432`)
+   **`DIRECT_URL`** — Session pooler (used by `prisma migrate`)
+   - Select the **Session** pooler tab
+   - Copy the URI (port `5432` on the pooler host)
 
    ```
    postgresql://postgres.xxxx:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres
    ```
 
+   > **Do not use the Direct connection tab** (`db.xxxx.supabase.co:5432`) — Supabase free tier blocks inbound connections to that host from outside their network.
+
+   > **URL-encode special characters** in your password (e.g. `@` → `%40`, `#` → `%23`). Use this command to encode:
+   > ```bash
+   > python3 -c "import urllib.parse; print(urllib.parse.quote('your_password', safe=''))"
+   > ```
+
 ### 2.3 Run Database Migrations
 
-Set up a local `.env.production.local` (never commit this) with both URLs, then run:
+Add both URLs to your local `.env` (never commit this file), then run:
 
 ```bash
-# Install dependencies if needed
-npm install
-
-# Run all Prisma migrations against the production database
-DATABASE_URL="<DIRECT_URL>" npx prisma migrate deploy
+npx prisma migrate deploy
 ```
 
-> Use the **Direct URL** (port 5432) for `prisma migrate deploy` — the pooler does not support the multi-statement transactions that migrations require.
+`prisma.config.js` automatically uses `DIRECT_URL` (Session pooler) for migrations and `DATABASE_URL` (Transaction pooler) for runtime queries.
+
+> If you see **"No pending migrations to apply"** but tables are missing, the migration history table was created without running the DDL (usually caused by running migrate against the wrong URL). Fix:
+> 1. In Supabase → **SQL Editor**, run: `DROP TABLE IF EXISTS "_prisma_migrations";`
+> 2. Re-run `npx prisma migrate deploy`
 
 ### 2.4 Verify Tables Were Created
 
@@ -182,7 +182,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
 ### 4.4 Configure the Webhook
 
 1. In Stripe → **Developers → Webhooks** → **Add endpoint**
-2. Endpoint URL: `https://YOUR_VERCEL_DOMAIN/api/stripe/webhook`
+2. Endpoint URL: `https://career.propel8.com/api/stripe/webhook`
 3. Select events to listen to:
    - `checkout.session.completed`
 4. After saving, reveal the **Signing secret**:
@@ -264,7 +264,7 @@ DATABASE_URL=postgresql://postgres.xxxx:[PASSWORD]@...pooler...:6543/postgres?pg
 DIRECT_URL=postgresql://postgres.xxxx:[PASSWORD]@...:5432/postgres
 
 # Application
-NEXT_PUBLIC_APP_URL=https://YOUR_VERCEL_DOMAIN.vercel.app
+NEXT_PUBLIC_APP_URL=https://career.propel8.com  # or your Vercel preview URL during initial deploy
 CREDIT_REMINDER_THRESHOLD=3
 CREDIT_WARNING_THRESHOLD=1
 
@@ -299,7 +299,7 @@ Watch the build logs. Common failures and fixes:
 
 Now that you have the production URL, go to Stripe → **Developers → Webhooks** and add:
 ```
-https://YOUR_VERCEL_DOMAIN.vercel.app/api/stripe/webhook
+https://career.propel8.com/api/stripe/webhook
 ```
 
 Test the webhook by purchasing credits in production with a real card.
@@ -331,12 +331,33 @@ You can now access the admin dashboard at `/admin`.
 - [ ] Download DOCX / PDF works
 - [ ] `/admin` dashboard is accessible with your admin account
 
-### 7.4 Add Custom Domain (Optional)
+### 7.4 Add Custom Domain
 
-In Vercel → **Settings → Domains**, add your custom domain and follow the DNS configuration steps. Update:
-- `NEXT_PUBLIC_APP_URL` in Vercel environment variables to your custom domain
-- Stripe webhook URL to your custom domain
-- Clerk allowed domains to include your custom domain
+The app is deployed at **career.propel8.com**.
+
+#### Configure DNS
+
+In your DNS provider for `propel8.com`, add a CNAME record:
+
+| Type | Name | Value |
+|------|------|-------|
+| `CNAME` | `career` | `cname.vercel-dns.com` |
+
+> If your DNS provider doesn't support CNAME on a root domain, use an `A` record pointing to Vercel's IP instead — but since this is a subdomain (`career`), CNAME works fine.
+
+#### Configure Vercel
+
+1. In Vercel → your project → **Settings → Domains**
+2. Click **Add** and enter `career.propel8.com`
+3. Vercel will verify the DNS record — this can take a few minutes to propagate
+
+#### Update Services
+
+Once the domain is live, update these three places:
+
+1. **Vercel environment variable** — set `NEXT_PUBLIC_APP_URL=https://career.propel8.com`
+2. **Stripe webhook** — update the endpoint URL to `https://career.propel8.com/api/stripe/webhook`
+3. **Clerk** → **Domains** — add `career.propel8.com` as an allowed domain
 
 ---
 
@@ -356,8 +377,8 @@ For future schema changes:
 # Create a new migration (run locally against dev DB)
 npx prisma migrate dev --name describe_your_change
 
-# Deploy the migration to production
-DATABASE_URL="<DIRECT_URL>" npx prisma migrate deploy
+# Deploy the migration to production (ensure DIRECT_URL is set in .env)
+npx prisma migrate deploy
 ```
 
 ### Scaling Considerations
@@ -374,7 +395,7 @@ DATABASE_URL="<DIRECT_URL>" npx prisma migrate deploy
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | Supabase Transaction pooler URL (port 6543) |
-| `DIRECT_URL` | Yes | Supabase direct connection URL (port 5432, for migrations) |
+| `DIRECT_URL` | Yes | Supabase Session pooler URL (port 5432 on pooler host, for migrations) |
 | `AI_PROVIDER` | Yes | `claude` or `openai` |
 | `AI_MODEL` | Yes | e.g. `claude-opus-4-6` or `gpt-4.1-mini` |
 | `AI_MOCK_MODE` | No | Set to `true` only for testing — disables all AI calls |

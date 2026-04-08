@@ -27,6 +27,15 @@ jest.mock("@/lib/tracking", () => ({
   logUsage: jest.fn(),
 }));
 
+jest.mock("@/lib/credits/consume", () => ({
+  InsufficientCreditsError: class InsufficientCreditsError extends Error {
+    constructor() {
+      super("Insufficient credits");
+      this.name = "InsufficientCreditsError";
+    }
+  },
+}));
+
 // ─── Imports ──────────────────────────────────────────────────────────────────
 
 import { POST } from "./route";
@@ -36,13 +45,8 @@ const { auth } = require("@clerk/nextjs/server");
 const { convertDOCXtoPDF } = require("@/lib/pdf/converter");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { applyChangesToDOCX } = require("@/lib/docx/modifier");
-
-class InsufficientCreditsError extends Error {
-  constructor() {
-    super("Insufficient credits");
-    this.name = "InsufficientCreditsError";
-  }
-}
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { InsufficientCreditsError } = require("@/lib/credits/consume");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

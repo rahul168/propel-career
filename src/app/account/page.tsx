@@ -10,7 +10,7 @@ const FEATURE_LABELS: Record<string, string> = {
   "parse-resume": "Resume Upload",
   "parse-resume-adobe": "Resume Upload (PDF)",
   "generate-resume": "PDF Generation",
-  "generate-resume-adobe": "PDF Generation (Adobe)",
+  "generate-resume-adobe": "PDF Generation",
 };
 
 const FEATURE_CREDITS_USED: Record<string, number> = {
@@ -18,6 +18,17 @@ const FEATURE_CREDITS_USED: Record<string, number> = {
   "parse-resume-adobe": 1,
   "generate-resume-adobe": 1,
 };
+
+type CreditHistoryEntry =
+  | { kind: "consumed"; id: string; label: string; amount: number; date: Date }
+  | { kind: "added"; id: string; label: string; amount: number; date: Date; paid: number };
+
+type FilterType = "all" | "added" | "used" | "free";
+type SortKey = "date" | "credits";
+type SortDir = "asc" | "desc";
+type SortType = `${SortKey}_${SortDir}`;
+
+const PAGE_SIZE = 10;
 
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -29,15 +40,35 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-export default async function AccountPage() {
+function buildUrl(params: Record<string, string | number>) {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) sp.set(k, String(v));
+  return `/account?${sp.toString()}`;
+}
+
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string; page?: string; sort?: string }>;
+}) {
   const { userId } = await auth();
+  const { filter: rawFilter, page: rawPage, sort: rawSort } = await searchParams;
+
+  const filter: FilterType =
+    rawFilter === "added" || rawFilter === "used" || rawFilter === "free"
+      ? rawFilter
+      : "all";
+  const page = Math.max(1, parseInt(rawPage ?? "1", 10) || 1);
+  const sort: SortType =
+    rawSort === "date_asc" || rawSort === "credits_asc" || rawSort === "credits_desc"
+      ? rawSort
+      : "date_desc";
 
   const [user, usageEvents, purchases] = await Promise.all([
     prisma.user.findUnique({ where: { id: userId! } }),
     prisma.usageEvent.findMany({
       where: { userId: userId!, statusCode: 200 },
       orderBy: { createdAt: "desc" },
-      take: 50,
       select: { id: true, feature: true, createdAt: true },
     }),
     prisma.purchase.findMany({
@@ -50,6 +81,57 @@ export default async function AccountPage() {
   const status = getCreditStatus(credits);
   const creditsUsed = usageEvents.reduce((sum, e) => sum + (FEATURE_CREDITS_USED[e.feature] ?? 0), 0);
   const totalCreditsPurchased = purchases.reduce((sum, p) => sum + p.creditsAdded, 0);
+
+  const allHistory: CreditHistoryEntry[] = [
+    ...usageEvents.map((e): CreditHistoryEntry => ({
+      kind: "consumed",
+      id: `usage-${e.id}`,
+      label: FEATURE_LABELS[e.feature] ?? e.feature,
+      amount: FEATURE_CREDITS_USED[e.feature] ?? 0,
+      date: e.createdAt,
+    })),
+    ...purchases.map((p): CreditHistoryEntry => ({
+      kind: "added",
+      id: `purchase-${p.id}`,
+      label: "Credits purchased",
+      amount: p.creditsAdded,
+      date: p.createdAt,
+      paid: p.amountPaid,
+    })),
+  ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  const filtered = allHistory
+    .filter((e) => {
+      if (filter === "all") return true;
+      if (filter === "added") return e.kind === "added";
+      if (filter === "free") return e.kind === "consumed" && e.amount === 0;
+      if (filter === "used") return e.kind === "consumed" && e.amount > 0;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sort === "date_asc") return a.date.getTime() - b.date.getTime();
+      if (sort === "credits_desc") return b.amount - a.amount;
+      if (sort === "credits_asc") return a.amount - b.amount;
+      return b.date.getTime() - a.date.getTime(); // date_desc default
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const filterCounts: Record<FilterType, number> = {
+    all: allHistory.length,
+    added: allHistory.filter((e) => e.kind === "added").length,
+    used: allHistory.filter((e) => e.kind === "consumed" && e.amount > 0).length,
+    free: allHistory.filter((e) => e.kind === "consumed" && e.amount === 0).length,
+  };
+
+  const FILTER_TABS: { key: FilterType; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "added", label: "Added" },
+    { key: "used", label: "Used" },
+    { key: "free", label: "Free" },
+  ];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
@@ -81,60 +163,154 @@ export default async function AccountPage() {
         </div>
       </div>
 
-      {usageEvents.length > 0 && (
+      {allHistory.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-3">Usage History</h2>
-          <div className="bg-white border rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Feature</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Date</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">Credits Used</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usageEvents.map((event) => (
-                  <tr key={event.id} className="border-t">
-                    <td className="px-4 py-3 text-gray-700">
-                      {FEATURE_LABELS[event.feature] ?? event.feature}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(event.createdAt)}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">
-                      {FEATURE_CREDITS_USED[event.feature] ?? 0}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+          <h2 className="text-lg font-semibold mb-3">Credit History</h2>
 
-      {purchases.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold mb-3">Purchase History</h2>
+          {/* Filter tabs */}
+          <div className="flex gap-2 mb-3">
+            {FILTER_TABS.map(({ key, label }) => {
+              const isActive = filter === key;
+              return (
+                <Link
+                  key={key}
+                  href={buildUrl({ filter: key, page: 1, sort })}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    isActive
+                      ? "bg-gray-900 text-white"
+                      : "bg-white border text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {label}
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                      isActive ? "bg-white/20 text-white" : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {filterCounts[key]}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+
           <div className="bg-white border rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Pack</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Date</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-500">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchases.map((p) => (
-                  <tr key={p.id} className="border-t">
-                    <td className="px-4 py-3 text-gray-700">{p.creditsAdded} credits</td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(p.createdAt)}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">
-                      ${(p.amountPaid / 100).toFixed(2)}
-                    </td>
+            {pageItems.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-gray-400">
+                No entries for this filter.
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500 w-28">Type</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Description</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">
+                      <Link
+                        href={buildUrl({ filter, page: 1, sort: sort === "date_desc" ? "date_asc" : "date_desc" })}
+                        className="inline-flex items-center gap-1 hover:text-gray-800 transition-colors"
+                      >
+                        Date
+                        <span className="text-[11px]">
+                          {sort === "date_desc" ? "↓" : sort === "date_asc" ? "↑" : "↕"}
+                        </span>
+                      </Link>
+                    </th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-500">
+                      <Link
+                        href={buildUrl({ filter, page: 1, sort: sort === "credits_desc" ? "credits_asc" : "credits_desc" })}
+                        className="inline-flex items-center justify-end gap-1 w-full hover:text-gray-800 transition-colors"
+                      >
+                        Credits
+                        <span className="text-[11px]">
+                          {sort === "credits_desc" ? "↓" : sort === "credits_asc" ? "↑" : "↕"}
+                        </span>
+                      </Link>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pageItems.map((entry) =>
+                    entry.kind === "added" ? (
+                      <tr key={entry.id} className="border-t bg-green-50/40 hover:bg-green-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                            Added
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {entry.label}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500">{formatDate(entry.date)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-green-700">
+                          +{entry.amount}
+                        </td>
+                      </tr>
+                    ) : entry.amount === 0 ? (
+                      <tr key={entry.id} className="border-t bg-gray-50/60 hover:bg-gray-100/60 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center text-xs font-semibold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                            Free
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-400">{entry.label}</td>
+                        <td className="px-4 py-3 text-gray-400">{formatDate(entry.date)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-400">0</td>
+                      </tr>
+                    ) : (
+                      <tr key={entry.id} className="border-t hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center text-xs font-semibold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                            Used
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">{entry.label}</td>
+                        <td className="px-4 py-3 text-gray-500">{formatDate(entry.date)}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-orange-700">
+                          −{entry.amount}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+                <span className="text-xs text-gray-500">
+                  {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={buildUrl({ filter, page: currentPage - 1, sort })}
+                    aria-disabled={currentPage === 1}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      currentPage === 1
+                        ? "pointer-events-none text-gray-300 border-gray-200 bg-white"
+                        : "text-gray-600 border-gray-300 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    ← Previous
+                  </Link>
+                  <span className="text-xs text-gray-500 px-1">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Link
+                    href={buildUrl({ filter, page: currentPage + 1, sort })}
+                    aria-disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                      currentPage === totalPages
+                        ? "pointer-events-none text-gray-300 border-gray-200 bg-white"
+                        : "text-gray-600 border-gray-300 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    Next →
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

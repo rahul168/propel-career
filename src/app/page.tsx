@@ -54,27 +54,42 @@ export default async function LandingPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-8 text-left">
-        <div className="bg-white rounded-xl border p-6">
+        <Link href="/features/ats-scoring" className="group bg-white rounded-xl border p-6 hover:border-blue-300 hover:shadow-md transition-all">
           <FileText className="h-8 w-8 text-blue-600 mb-3" />
-          <h3 className="font-semibold text-gray-900 mb-1">Instant ATS Scoring</h3>
+          <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+            Instant ATS Scoring
+          </h3>
           <p className="text-sm text-gray-500">
             Get a 0–100 match score showing how well your resume aligns with the job description.
           </p>
-        </div>
-        <div className="bg-white rounded-xl border p-6">
+          <span className="mt-3 inline-block text-xs font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+            Learn more →
+          </span>
+        </Link>
+        <Link href="/features/ai-suggestions" className="group bg-white rounded-xl border p-6 hover:border-blue-300 hover:shadow-md transition-all">
           <Zap className="h-8 w-8 text-blue-600 mb-3" />
-          <h3 className="font-semibold text-gray-900 mb-1">AI-Powered Suggestions</h3>
+          <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+            AI-Powered Suggestions
+          </h3>
           <p className="text-sm text-gray-500">
             Receive 8–12 specific, targeted wording improvements — not generic advice.
           </p>
-        </div>
-        <div className="bg-white rounded-xl border p-6">
+          <span className="mt-3 inline-block text-xs font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+            Learn more →
+          </span>
+        </Link>
+        <Link href="/features/pdf-export" className="group bg-white rounded-xl border p-6 hover:border-blue-300 hover:shadow-md transition-all">
           <Download className="h-8 w-8 text-blue-600 mb-3" />
-          <h3 className="font-semibold text-gray-900 mb-1">One-Click PDF Export</h3>
+          <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+            One-Click PDF Export
+          </h3>
           <p className="text-sm text-gray-500">
             Accept the changes you want and download a polished, updated resume instantly.
           </p>
-        </div>
+          <span className="mt-3 inline-block text-xs font-medium text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+            Learn more →
+          </span>
+        </Link>
       </div>
     </div>
   );

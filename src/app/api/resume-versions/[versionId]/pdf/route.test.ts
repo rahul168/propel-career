@@ -25,6 +25,15 @@ jest.mock("@/lib/pdf/converter", () => ({
   convertDOCXtoPDF: jest.fn(),
 }));
 
+jest.mock("@/lib/credits/consume", () => ({
+  InsufficientCreditsError: class InsufficientCreditsError extends Error {
+    constructor() {
+      super("Insufficient credits");
+      this.name = "InsufficientCreditsError";
+    }
+  },
+}));
+
 // ─── Imports ──────────────────────────────────────────────────────────────────
 
 import { GET } from "./route";
@@ -34,13 +43,8 @@ const { auth } = require("@clerk/nextjs/server");
 const { convertDOCXtoPDF } = require("@/lib/pdf/converter");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { prisma } = require("@/lib/db/prisma");
-
-class InsufficientCreditsError extends Error {
-  constructor() {
-    super("Insufficient credits");
-    this.name = "InsufficientCreditsError";
-  }
-}
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { InsufficientCreditsError } = require("@/lib/credits/consume");
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

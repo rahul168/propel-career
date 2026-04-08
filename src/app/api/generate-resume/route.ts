@@ -55,13 +55,8 @@ export async function POST(request: Request) {
     try {
       const modifiedDocx = await applyChangesToDOCX(docxBase64, acceptedSuggestions);
 
-      const adobeConfigured =
-        !!process.env.ADBE_CLIENT_ID &&
-        !!process.env.ADBE_CLIENT_SECRET &&
-        process.env.ADBE_CLIENT_ID !== "your-adobe-client-id";
-
-      const buf = await convertDOCXtoPDF(modifiedDocx, adobeConfigured ? { userId } : undefined);
-      void logUsage(userId, adobeConfigured ? "generate-resume-adobe" : "generate-resume", 200, Date.now() - start);
+      const buf = await convertDOCXtoPDF(modifiedDocx, { userId });
+      void logUsage(userId, "generate-resume-adobe", 200, Date.now() - start);
       return new Response(new Uint8Array(buf), {
         headers: {
           "Content-Type": "application/pdf",

@@ -24,13 +24,8 @@ export async function GET(_: Request, context: { params: Promise<{ versionId: st
   });
   if (!version) return Response.json({ error: "Not found" }, { status: 404 });
 
-  const adobeConfigured =
-    !!process.env.ADBE_CLIENT_ID &&
-    !!process.env.ADBE_CLIENT_SECRET &&
-    process.env.ADBE_CLIENT_ID !== "your-adobe-client-id";
-
   try {
-    const buf = await convertDOCXtoPDF(Buffer.from(version.docxBytes), adobeConfigured ? { userId } : undefined);
+    const buf = await convertDOCXtoPDF(Buffer.from(version.docxBytes), { userId });
     return new Response(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/pdf",

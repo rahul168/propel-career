@@ -2,6 +2,7 @@
 
 import { useReducer, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DocxEditor } from "@eigenpal/docx-js-editor";
 import type { DocxEditorRef } from "@eigenpal/docx-js-editor";
@@ -50,6 +51,7 @@ interface AnalysisState {
 
 type Action =
   | { type: "SET_RESUME"; text: string; fileName: string; docxBase64: string }
+  | { type: "RESET_FLOW" }
   | { type: "SET_BASELINE"; text: string; docxBase64: string }
   | { type: "SET_PROJECT"; projectId: string }
   | { type: "SET_VERSIONS"; versions: ResumeVersionMeta[] }
@@ -102,6 +104,13 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
         projectId: "",
         versions: [],
         isFetchingVersions: false,
+        // Clear stale analysis from the previous resume; keep jobDescription
+        matchAnalysis: null,
+        suggestions: [],
+        modifiedDocxBase64: "",
+        finalizedDocxBase64: "",
+        isFetchingSuggestions: false,
+        error: null,
         currentStep: 2,
       };
     case "SET_BASELINE":
@@ -154,8 +163,9 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
         ...state,
         currentStep: action.step,
         isLoading: false,
-        ...(action.step < 5 ? { modifiedDocxBase64: "" } : {}),
-        // Returning to step 1 discards the uploaded resume so the user starts fresh
+        ...(action.step < 5 ? { modifiedDocxBase64: "", finalizedDocxBase64: "" } : {}),
+        // Returning to step 1 clears the resume and analysis but keeps jobDescription
+        // so the user doesn't have to retype it after swapping their resume file
         ...(action.step === 1
           ? {
               resumeText: "",
@@ -199,6 +209,8 @@ function reducer(state: AnalysisState, action: Action): AnalysisState {
       return { ...state, isFetchingSuggestions: false, suggestions: action.suggestions };
     case "FETCH_SUGGESTIONS_ERROR":
       return { ...state, isFetchingSuggestions: false };
+    case "RESET_FLOW":
+      return initialState;
     default:
       return state;
   }
@@ -261,6 +273,7 @@ interface AnalyzeFlowProps {
 
 export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const router = useRouter();
   const rightEditorRef = useRef<DocxEditorRef>(null);
   const analysisAbortRef = useRef<AbortController | null>(null);
   const [isUploadedPreviewOpen, setIsUploadedPreviewOpen] = useState(false);
@@ -276,6 +289,16 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
   const modifiedBuffer = useMemo(
     () => (state.modifiedDocxBase64 ? base64ToArrayBuffer(state.modifiedDocxBase64) : null),
     [state.modifiedDocxBase64]
+  );
+
+  // Step 5 editor buffer — prefer the finalized (user-edited) version when navigating back
+  // from step 6; fall back to the suggestion-applied preview when entering step 5 fresh
+  const activeEditorBuffer = useMemo(
+    () => {
+      const b64 = state.finalizedDocxBase64 || state.modifiedDocxBase64;
+      return b64 ? base64ToArrayBuffer(b64) : null;
+    },
+    [state.finalizedDocxBase64, state.modifiedDocxBase64]
   );
 
   const uploadedBuffer = useMemo(
@@ -410,6 +433,8 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
       dispatch({ type: "RESTORE_FROM_SESSION", ...data });
       if (hasPaid) {
         sessionStorage.removeItem(SESSION_KEY);
+        // Refresh server components (Navbar credits) to show the newly purchased balance
+        router.refresh();
         dispatch({ type: "FETCH_SUGGESTIONS_START" });
         fetch("/api/suggest-improvements", {
           method: "POST",
@@ -498,6 +523,8 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
       const matchAnalysis: MatchAnalysis = await matchRes.json();
       const suggestions: Suggestion[] = suggestRes?.ok ? (await suggestRes.json()).suggestions : [];
       dispatch({ type: "ANALYSIS_COMPLETE", matchAnalysis, suggestions });
+      // analyze-match deducts 1 credit for paid users — refresh Navbar to show updated count
+      if (hasPaid) router.refresh();
     } catch (e) {
       if (e instanceof Error && e.name === "AbortError") return;
       const msg = e instanceof Error ? e.message : "Analysis failed";
@@ -598,10 +625,13 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
         if (!res.ok) throw new Error("PDF generation failed");
         triggerBlobDownload(await res.blob(), "optimized-resume.pdf");
         toast.success("Resume downloaded!");
+        // PDF conversion may deduct a credit — refresh Navbar
+        router.refresh();
       } catch {
         toast.error("Failed to generate PDF");
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.finalizedDocxBase64, state.resumeText]
   );
 
@@ -747,6 +777,7 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
                                 const blob = await res.blob();
                                 const name = toDocxDownloadName(v.originalFileName).replace(/\.docx$/i, ".pdf");
                                 triggerBlobDownload(blob, name);
+                                router.refresh();
                               }}
                             >
                               PDF
@@ -969,12 +1000,12 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
                 <p className="text-sm">Applying suggestions…</p>
               </div>
             </div>
-          ) : modifiedBuffer ? (
+          ) : activeEditorBuffer ? (
             <div className="overflow-x-auto">
               <div style={{ minWidth: "816px" }}>
                 <DocxEditor
                   ref={rightEditorRef}
-                  documentBuffer={modifiedBuffer}
+                  documentBuffer={activeEditorBuffer}
                   showToolbar={false}
                   style={{ height: "75vh" }}
                 />
@@ -992,13 +1023,13 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
               type="button"
               variant="outline"
               onClick={() => void handleOptimizeAgain()}
-              disabled={!modifiedBuffer || !state.projectId}
+              disabled={!activeEditorBuffer || !state.projectId}
             >
               Optimize again →
             </Button>
             <Button
               onClick={() => void handleFinalizeResume()}
-              disabled={!modifiedBuffer || !state.projectId}
+              disabled={!activeEditorBuffer || !state.projectId}
             >
               Finalize resume →
             </Button>
@@ -1095,6 +1126,7 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
                                 }
                                 const blob = await res.blob();
                                 triggerBlobDownload(blob, toDocxDownloadName(v.originalFileName).replace(/\.docx$/i, ".pdf"));
+                                router.refresh();
                               }}
                             >
                               PDF
@@ -1137,6 +1169,16 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
                 Download PDF
               </Button>
             </div>
+          </div>
+
+          {/* Start over */}
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => dispatch({ type: "RESET_FLOW" })}
+            >
+              Optimize another resume →
+            </Button>
           </div>
 
           {versionPreview.open && versionPreviewBuffer && (

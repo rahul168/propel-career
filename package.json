@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "^4.1.0",
@@ -45,6 +47,7 @@
     "@clerk/testing": "^2.0.8",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
@@ -52,8 +55,10 @@
     "@types/swagger-ui-react": "^5.18.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
+    "jest": "^30.3.0",
     "prisma": "^7.6.0",
     "tailwindcss": "^4",
+    "ts-jest": "^29.4.9",
     "typescript": "^5.9.3"
   }
 }

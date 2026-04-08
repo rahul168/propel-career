@@ -4,20 +4,6 @@
 
 ---
 
-## CRITICAL: Security Warning
-
-**Your `.env.example` contains real API keys and secrets.** If this file is committed to a public (or shared) repo, those credentials are compromised and must be rotated immediately:
-
-- Rotate your Anthropic API key at console.anthropic.com
-- Rotate your OpenAI API key at platform.openai.com
-- Rotate Clerk keys in the Clerk dashboard
-- Rotate Stripe keys in the Stripe dashboard
-- Regenerate the Stripe webhook secret
-
-After rotating, overwrite `.env.example` with placeholder values only (e.g. `sk-ant-REPLACE_ME`).
-
----
-
 ## Prerequisites
 
 - Node.js 20+ and npm installed locally

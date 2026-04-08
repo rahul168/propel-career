@@ -45,6 +45,6 @@ yarn-error.log*
 next-env.d.ts
 
 # Playwright E2E
-e2e/.test-users.json
-playwright-report/
-test-results/
+tests/e2e/.test-users.json
+tests/playwright-report/
+tests/test-results/

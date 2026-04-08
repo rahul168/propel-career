@@ -25,10 +25,10 @@ export async function Navbar() {
   const status = getCreditStatus(credits);
 
   return (
-    <nav className="border-b bg-white sticky top-0 z-50">
+    <nav className="border-b border-slate-200 bg-white sticky top-0 z-50 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="font-bold text-lg text-blue-600">
-          Propel Career
+        <Link href="/" className="font-extrabold text-[17px] tracking-tight">
+          <span className="text-blue-700">Propel8</span><span className="text-slate-900">Career</span>
         </Link>
 
         <div className="flex items-center gap-4">
@@ -46,20 +46,20 @@ export async function Navbar() {
               </>
             ) : (
               <>
-                <Link href="/analyze" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                <Link href="/analyze" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
                   Optimizer
                 </Link>
-                <Link href="/account" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                <Link href="/account" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
                   My Account
                 </Link>
-                <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                <Link href="/pricing" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
                   Pricing
                 </Link>
-                <Link href="/api-docs" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                <Link href="/api-docs" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
                   API Docs
                 </Link>
                 <span
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${badgeColors[status]}`}
+                  className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeColors[status]}`}
                 >
                   {credits} credits
                 </span>

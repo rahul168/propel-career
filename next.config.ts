@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer", "playwright", "playwright-core", "mammoth"],
   turbopack: {
     resolveAlias: {
-      canvas: "./empty-module.ts",
+      canvas: "./src/empty-module.ts",
     },
   },
 };

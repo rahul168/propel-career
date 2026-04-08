@@ -276,7 +276,6 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
   const router = useRouter();
   const rightEditorRef = useRef<DocxEditorRef>(null);
   const analysisAbortRef = useRef<AbortController | null>(null);
-  const [isUploadedPreviewOpen, setIsUploadedPreviewOpen] = useState(false);
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const [isDownloadVersionsOpen, setIsDownloadVersionsOpen] = useState(false);
   const [versionPreview, setVersionPreview] = useState<{
@@ -299,11 +298,6 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
       return b64 ? base64ToArrayBuffer(b64) : null;
     },
     [state.finalizedDocxBase64, state.modifiedDocxBase64]
-  );
-
-  const uploadedBuffer = useMemo(
-    () => (state.docxBase64 ? base64ToArrayBuffer(state.docxBase64) : null),
-    [state.docxBase64]
   );
 
   const versionPreviewBuffer = useMemo(
@@ -393,14 +387,13 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
 
     dispatch({ type: "FETCH_PREVIEW_START" });
 
-    fetch("/api/generate-resume", {
+    fetch("/api/generate-resume/docx", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         resumeText: state.resumeText,
         acceptedSuggestions: state.suggestions.filter((s) => s.accepted),
         docxBase64: state.docxBase64,
-        format: "docx",
       }),
     })
       .then((r) => {
@@ -612,14 +605,13 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
         return;
       }
       try {
-        const res = await fetch("/api/generate-resume", {
+        const res = await fetch("/api/generate-resume/pdf", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             resumeText: state.resumeText,
             acceptedSuggestions: [],
             docxBase64: state.finalizedDocxBase64,
-            format: "pdf",
           }),
         });
         if (!res.ok) throw new Error("PDF generation failed");
@@ -643,9 +635,9 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
 
       {/* Step 1 — Upload */}
       {state.currentStep === 1 && (
-        <div className="border border-gray-200 rounded-xl p-6">
-          <h2 className="text-2xl font-bold mb-2">Upload Your Resume</h2>
-          <p className="text-gray-500 mb-6">Upload your DOCX or PDF resume to get started.</p>
+        <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-sm">
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Upload Your Resume</h2>
+          <p className="text-slate-500 mb-6">Upload your DOCX or PDF resume to get started.</p>
           <FileUpload onUpload={handleUpload} />
         </div>
       )}
@@ -662,39 +654,13 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
           <p className="text-gray-500 mb-4">
             Copy and paste the full job description you&apos;re applying to.
           </p>
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="mb-4">
             <p className="text-sm text-green-600">✓ Resume uploaded: {state.fileName}</p>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!uploadedBuffer}
-                onClick={() => {
-                  if (!uploadedBuffer) return;
-                  triggerBlobDownload(
-                    new Blob([uploadedBuffer], {
-                      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    }),
-                    toDocxDownloadName(state.fileName)
-                  );
-                }}
-              >
-                Download uploaded DOCX
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!uploadedBuffer}
-                onClick={() => setIsUploadedPreviewOpen(true)}
-              >
-                View uploaded DOCX
-              </Button>
-            </div>
           </div>
 
           {/* Versions panel (server-side history) */}
           {state.projectId && (
-            <div className="border border-gray-200 rounded-xl p-4 mb-4 bg-white">
+            <div className="border border-slate-200 rounded-xl p-4 mb-4 bg-white shadow-sm">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
                   <button
@@ -812,12 +778,12 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
             </div>
           )}
           <textarea
-            className="w-full h-64 border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full h-64 border border-slate-300 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-shadow"
             placeholder="Paste the job description here... (minimum 50 characters)"
             value={state.jobDescription}
             onChange={(e) => dispatch({ type: "SET_JD", jobDescription: e.target.value })}
           />
-          <p className="text-xs text-gray-400 mt-1">{state.jobDescription.length} characters</p>
+          <p className="text-xs text-slate-400 mt-1">{state.jobDescription.length} characters</p>
           {state.error && <p className="text-sm text-red-600 mt-2">{state.error}</p>}
           <Button
             onClick={handleAnalyze}
@@ -826,39 +792,6 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
           >
             Analyze Match →
           </Button>
-
-          {isUploadedPreviewOpen && uploadedBuffer && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) setIsUploadedPreviewOpen(false);
-              }}
-            >
-              <div className="w-full max-w-5xl rounded-xl bg-white shadow-lg border overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">Uploaded resume preview</p>
-                    <p className="text-xs text-gray-500 truncate">{toDocxDownloadName(state.fileName)}</p>
-                  </div>
-                  <Button type="button" variant="outline" onClick={() => setIsUploadedPreviewOpen(false)}>
-                    Close
-                  </Button>
-                </div>
-                <div className="overflow-x-auto">
-                  <div style={{ minWidth: "816px" }}>
-                    <DocxEditor
-                      documentBuffer={uploadedBuffer}
-                      mode="viewing"
-                      readOnly
-                      showToolbar={false}
-                      documentNameEditable={false}
-                      style={{ height: "70vh" }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {versionPreview.open && versionPreviewBuffer && (
             <div
@@ -931,18 +864,21 @@ export function AnalyzeFlow({ hasPaid }: AnalyzeFlowProps) {
           </div>
           {hasPaid ? (
             <>
-              <div className="bg-white border rounded-xl p-6 mb-6">
+              <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6 shadow-sm">
                 <MatchScore analysis={state.matchAnalysis} />
               </div>
               {state.isFetchingSuggestions ? (
-                <div className="flex items-center gap-3 py-8 text-gray-400 text-sm">
+                <div className="flex items-center gap-3 py-8 text-slate-400 text-sm">
                   <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
                   Loading your personalized suggestions…
                 </div>
               ) : (
                 <>
-                  <h3 className="text-lg font-semibold mb-4">
-                    Improvement Suggestions ({acceptedCount} of {state.suggestions.length} accepted)
+                  <h3 className="text-lg font-bold text-slate-900 mb-4">
+                    Improvement Suggestions
+                    <span className="ml-2 text-sm font-normal text-slate-500">
+                      ({acceptedCount} of {state.suggestions.length} accepted)
+                    </span>
                   </h3>
                   <div className="space-y-4 mb-6">
                     {state.suggestions.map((suggestion) => (

@@ -29,16 +29,21 @@ const SuggestionSchema = registry.register(
 
 registry.registerPath({
   method: "post",
-  path: "/api/parse-resume",
+  path: "/api/parse-resume/{format}",
   tags: ["Resume"],
-  summary: "Upload and parse a PDF resume",
+  summary: "Upload and parse a resume — format is 'docx' or 'pdf'",
   security: [{ BearerAuth: [] }],
   request: {
+    params: z.object({
+      format: z.enum(["docx", "pdf"]).openapi({
+        description: "'docx' parses the file directly. 'pdf' converts to DOCX via Adobe Services (1 credit) then extracts text.",
+      }),
+    }),
     body: {
       content: {
         "multipart/form-data": {
           schema: z.object({
-            resume: z.instanceof(File).openapi({ type: "string", format: "binary" }),
+            resume: z.instanceof(File).openapi({ type: "string", format: "binary", description: "DOCX or PDF file matching the chosen format" }),
           }),
         },
       },
@@ -46,17 +51,19 @@ registry.registerPath({
   },
   responses: {
     200: {
-      description: "Extracted text",
+      description: "Extracted text, file name, and DOCX as base64",
       content: {
         "application/json": {
-          schema: z.object({ text: z.string(), fileName: z.string() }),
+          schema: z.object({ text: z.string(), fileName: z.string(), docxBase64: z.string() }),
         },
       },
     },
-    400: { description: "Invalid file (not a PDF)" },
+    400: { description: "Invalid format parameter, wrong file type, or conversion failed" },
     401: { description: "Unauthorized" },
+    402: { description: "Insufficient credits (pdf format only)" },
   },
 });
+
 
 registry.registerPath({
   method: "post",
@@ -120,17 +127,23 @@ registry.registerPath({
 
 registry.registerPath({
   method: "post",
-  path: "/api/generate-resume",
+  path: "/api/generate-resume/{format}",
   tags: ["Resume"],
-  summary: "Generate updated resume PDF with accepted suggestions applied",
+  summary: "Generate updated resume — format is 'docx' or 'pdf'",
   security: [{ BearerAuth: [] }],
   request: {
+    params: z.object({
+      format: z.enum(["docx", "pdf"]).openapi({
+        description: "'docx' applies suggestions and returns the DOCX file. 'pdf' converts to PDF via Adobe Services (1 credit).",
+      }),
+    }),
     body: {
       content: {
         "application/json": {
           schema: z.object({
             resumeText: z.string(),
             acceptedSuggestions: z.array(SuggestionSchema),
+            docxBase64: z.string().openapi({ description: "Base64-encoded DOCX to apply suggestions to" }),
           }),
         },
       },
@@ -138,14 +151,20 @@ registry.registerPath({
   },
   responses: {
     200: {
-      description: "PDF file download",
+      description: "DOCX or PDF file download",
       content: {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+          schema: z.string().openapi({ type: "string", format: "binary" }),
+        },
         "application/pdf": {
           schema: z.string().openapi({ type: "string", format: "binary" }),
         },
       },
     },
+    400: { description: "Invalid format parameter or missing docxBase64" },
     401: { description: "Unauthorized" },
+    402: { description: "Insufficient credits (pdf format only)" },
+    500: { description: "PDF generation failed" },
   },
 });
 

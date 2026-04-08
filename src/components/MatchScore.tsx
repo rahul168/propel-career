@@ -30,29 +30,34 @@ export function MatchScore({ analysis }: MatchScoreProps) {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <div className={`text-6xl font-bold ${getScoreColor(score)}`}>{score}</div>
-        <div className="text-gray-500 text-sm mt-1">out of 100</div>
-        <div className={`font-semibold mt-2 ${getScoreColor(score)}`}>{getScoreLabel(score)}</div>
-        <div className="mt-3 bg-gray-200 rounded-full h-3 max-w-xs mx-auto">
+      {/* Score */}
+      <div className="text-center py-2">
+        <div className={`text-[72px] font-black leading-none ${getScoreColor(score)}`}>{score}</div>
+        <div className="text-slate-400 text-sm mt-1">out of 100</div>
+        <div className={`font-bold text-base mt-2 ${getScoreColor(score)}`}>{getScoreLabel(score)}</div>
+        <div className="mt-4 bg-slate-100 rounded-full h-2.5 max-w-xs mx-auto overflow-hidden">
           <div
-            className={`h-3 rounded-full transition-all ${getBarColor(score)}`}
+            className={`h-2.5 rounded-full transition-all duration-700 ${getBarColor(score)}`}
             style={{ width: `${score}%` }}
           />
         </div>
       </div>
 
+      {/* Keywords */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <h3 className="font-semibold text-green-700 mb-2 flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-green-700 mb-2 flex items-center gap-1.5">
             <span className="w-2 h-2 bg-green-500 rounded-full inline-block" />
-            Matched Keywords ({matchedKeywords.length})
+            Matched Keywords
+            <span className="ml-auto text-xs font-normal text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-200">
+              {matchedKeywords.length}
+            </span>
           </h3>
           <div className="flex flex-wrap gap-1">
             {matchedKeywords.map((kw) => (
               <span
                 key={kw}
-                className="px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs font-medium"
+                className="px-2 py-0.5 bg-green-50 text-green-800 border border-green-200 rounded-full text-xs font-medium"
               >
                 {kw}
               </span>
@@ -61,15 +66,18 @@ export function MatchScore({ analysis }: MatchScoreProps) {
         </div>
 
         <div>
-          <h3 className="font-semibold text-red-700 mb-2 flex items-center gap-1">
+          <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1.5">
             <span className="w-2 h-2 bg-red-500 rounded-full inline-block" />
-            Missing Keywords ({missingKeywords.length})
+            Missing Keywords
+            <span className="ml-auto text-xs font-normal text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200">
+              {missingKeywords.length}
+            </span>
           </h3>
           <div className="flex flex-wrap gap-1">
             {missingKeywords.map((kw) => (
               <span
                 key={kw}
-                className="px-2 py-0.5 bg-red-100 text-red-800 rounded text-xs font-medium"
+                className="px-2 py-0.5 bg-red-50 text-red-800 border border-red-200 rounded-full text-xs font-medium"
               >
                 {kw}
               </span>

@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "src/app/api/analyze-match/route.ts": { "maxDuration": 60 },
+    "src/app/api/suggest-improvements/route.ts": { "maxDuration": 60 },
+    "src/app/api/generate-resume/[format]/route.ts": { "maxDuration": 60 },
+    "src/app/api/parse-resume/[format]/route.ts": { "maxDuration": 30 },
+    "src/app/api/resume-versions/[versionId]/pdf/route.ts": { "maxDuration": 30 }
+  }
+}

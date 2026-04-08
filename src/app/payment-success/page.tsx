@@ -26,33 +26,34 @@ export default async function PaymentSuccessPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16 text-center">
-      <div className="text-6xl mb-6">🎉</div>
-      <h1 className="text-3xl font-bold mb-3 text-gray-900">Payment Successful!</h1>
+    <div className="max-w-md mx-auto px-4 py-20 text-center">
+      <div className="text-7xl mb-6">🎉</div>
+      <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 mb-3">Payment Successful!</h1>
 
       {creditsAdded > 0 ? (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
-          <div className="text-2xl font-bold text-green-700">{creditsAdded} Credits Added</div>
+        <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-7 mb-8">
+          <div className="text-4xl font-black text-green-700 mb-1">{creditsAdded}</div>
+          <div className="text-lg font-bold text-green-700 mb-1">Credits Added</div>
           {packName && (
-            <div className="text-gray-600 mt-1">
+            <div className="text-slate-500 text-sm mt-1">
               {packName} Pack · {amountPaid}
             </div>
           )}
         </div>
       ) : (
-        <p className="text-gray-500 mb-8">Your credits have been added to your account.</p>
+        <p className="text-slate-500 mb-8">Your credits have been added to your account.</p>
       )}
 
       <div className="space-y-3">
         <Link
           href="/analyze"
-          className="block bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+          className="block bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-800 transition-all shadow-sm hover:shadow-md hover:-translate-y-px"
         >
           Start Analyzing →
         </Link>
         <Link
           href="/account"
-          className="block text-blue-600 hover:text-blue-800 text-sm"
+          className="block text-blue-600 hover:text-blue-800 text-sm transition-colors"
         >
           View My Account
         </Link>

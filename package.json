@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
@@ -24,6 +24,7 @@
     "@react-pdf/renderer": "^4.3.3",
     "@stripe/stripe-js": "^9.1.0",
     "@types/pg": "^8.20.0",
+    "@types/swagger-ui-react": "^5.18.0",
     "@xmldom/xmldom": "^0.9.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -41,7 +42,7 @@
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "stripe": "^22.0.0",
-    "swagger-ui-react": "^5.32.1",
+    "swagger-ui-react": "^5.32.2",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
@@ -54,7 +55,6 @@
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/swagger-ui-react": "^5.18.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.2",
     "jest": "^30.3.0",

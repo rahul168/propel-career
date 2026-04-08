@@ -40,11 +40,11 @@ export function MatchCategoryBadge({ score }: MatchCategoryBadgeProps) {
   const config = categoryConfig[category];
 
   return (
-    <div className={`border-2 rounded-xl p-8 text-center ${config.styles}`}>
-      <div className="text-4xl mb-3">{config.icon}</div>
-      <div className="text-3xl font-bold tracking-wide">{config.label}</div>
-      <div className="text-sm mt-2 opacity-75">{config.range}</div>
-      <p className="mt-4 text-sm">
+    <div className={`border-2 rounded-2xl p-10 text-center ${config.styles}`}>
+      <div className="text-5xl mb-4">{config.icon}</div>
+      <div className="text-4xl font-black tracking-wider leading-none mb-2">{config.label}</div>
+      <div className="text-sm font-semibold opacity-70 mb-4">{config.range}</div>
+      <p className="text-sm leading-relaxed max-w-xs mx-auto opacity-80">
         Your resume has been analyzed. Unlock the full report to see your exact score, keyword
         breakdown, and personalized suggestions.
       </p>

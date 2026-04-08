@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/prisma";
 import { convertDOCXtoPDF } from "@/lib/pdf/converter";
 import { InsufficientCreditsError } from "@/lib/credits/consume";
+import { logUsage } from "@/lib/tracking";
 
 export const runtime = "nodejs";
 
@@ -24,8 +25,10 @@ export async function GET(_: Request, context: { params: Promise<{ versionId: st
   });
   if (!version) return Response.json({ error: "Not found" }, { status: 404 });
 
+  const start = Date.now();
   try {
     const buf = await convertDOCXtoPDF(Buffer.from(version.docxBytes), { userId });
+    void logUsage(userId, "generate-resume-adobe", 200, Date.now() - start);
     return new Response(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/pdf",

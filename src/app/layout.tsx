@@ -29,8 +29,8 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider afterSignOutUrl="/" signInUrl="/sign-in" signUpUrl="/sign-up">
-      <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-        <body className="min-h-full flex flex-col bg-gray-50">
+      <html lang="en" data-scroll-behavior="smooth" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+        <body className="min-h-full flex flex-col bg-slate-50">
           <Navbar />
           <main className="flex-1">{children}</main>
           <Toaster richColors position="top-right" />

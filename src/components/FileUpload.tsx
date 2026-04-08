@@ -26,7 +26,9 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
       formData.append("resume", file);
 
       try {
-        const res = await fetch("/api/parse-resume", { method: "POST", body: formData });
+        const isPDF = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        const endpoint = isPDF ? "/api/parse-resume/pdf" : "/api/parse-resume/docx";
+        const res = await fetch(endpoint, { method: "POST", body: formData });
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error ?? "Upload failed");
@@ -61,11 +63,11 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
 
   if (uploadedFile) {
     return (
-      <div className="border-2 border-green-300 bg-green-50 rounded-lg p-6 flex items-center justify-between">
+      <div className="border-2 border-green-300 bg-green-50 rounded-xl p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileText className="h-8 w-8 text-green-600" />
+          <FileText className="h-9 w-9 text-green-600" />
           <div>
-            <p className="font-medium text-green-800">{uploadedFile.name}</p>
+            <p className="font-semibold text-green-800">{uploadedFile.name}</p>
             <p className="text-sm text-green-600">{formatBytes(uploadedFile.size)}</p>
           </div>
         </div>
@@ -83,23 +85,23 @@ export function FileUpload({ onUpload, isLoading }: FileUploadProps) {
     <div>
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-xl py-14 px-8 text-center cursor-pointer transition-all duration-200 bg-slate-50 ${
           isDragActive
             ? "border-blue-400 bg-blue-50"
-            : "border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+            : "border-slate-300 hover:border-blue-400 hover:bg-blue-50"
         } ${isLoading || uploading ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         <input {...getInputProps()} />
-        <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+        <Upload className="h-11 w-11 text-slate-400 mx-auto mb-4" />
         {uploading ? (
-          <p className="text-gray-600">Uploading...</p>
+          <p className="text-slate-600 font-medium">Uploading…</p>
         ) : isDragActive ? (
-          <p className="text-blue-600 font-medium">Drop your resume here</p>
+          <p className="text-blue-600 font-semibold">Drop your resume here</p>
         ) : (
           <>
-            <p className="text-gray-700 font-medium">Drag & drop your resume here</p>
-            <p className="text-sm text-gray-500 mt-1">or click to browse files</p>
-            <p className="text-xs text-gray-400 mt-2">DOCX or PDF files (.docx, .pdf)</p>
+            <p className="text-slate-700 font-semibold">Drag &amp; drop your resume here</p>
+            <p className="text-sm text-slate-500 mt-1">or click to browse files</p>
+            <p className="text-xs text-slate-400 mt-2">Supported formats: .docx, .pdf</p>
           </>
         )}
       </div>

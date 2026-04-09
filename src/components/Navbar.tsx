@@ -35,6 +35,12 @@ export async function Navbar() {
           {userId ? (
             isAdmin ? (
               <>
+                <Link href="/about" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
+                  About
+                </Link>
+                <Link href="/contact" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
+                  Contact
+                </Link>
                 <Link
                   href="/admin"
                   className="flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-900"
@@ -58,6 +64,12 @@ export async function Navbar() {
                 <Link href="/api-docs" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
                   API Docs
                 </Link>
+                <Link href="/about" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
+                  About
+                </Link>
+                <Link href="/contact" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
+                  Contact
+                </Link>
                 <span
                   className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeColors[status]}`}
                 >
@@ -67,12 +79,20 @@ export async function Navbar() {
               </>
             )
           ) : (
-            <Link
-              href="/sign-in"
-              className="text-sm font-semibold text-white bg-blue-600 px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 hover:-translate-y-px hover:shadow-md transition-all duration-150 active:scale-[0.98]"
-            >
-              Sign In
-            </Link>
+            <>
+              <Link href="/about" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
+                About
+              </Link>
+              <Link href="/contact" className="text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors duration-150 pb-0.5 border-b-2 border-transparent hover:border-blue-600">
+                Contact
+              </Link>
+              <Link
+                href="/sign-in"
+                className="text-sm font-semibold text-white bg-blue-600 px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 hover:-translate-y-px hover:shadow-md transition-all duration-150 active:scale-[0.98]"
+              >
+                Sign In
+              </Link>
+            </>
           )}
         </div>
       </div>

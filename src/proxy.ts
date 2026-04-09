@@ -6,11 +6,16 @@ const isProtected = createRouteMatcher([
   "/pricing",
   "/payment-success",
   "/admin(.*)",
-  "/api/((?!docs|stripe/webhook).*)",
+  "/api/(.*)",
+]);
+
+const isPublic = createRouteMatcher([
+  "/api/docs(.*)",
+  "/api/stripe/webhook",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtected(req)) await auth.protect();
+  if (isProtected(req) && !isPublic(req)) await auth.protect();
 });
 
 export const config = {

@@ -7,14 +7,15 @@ datasource db {
 }
 
 model User {
-  id          String       @id
-  email       String       @unique
-  credits     Int          @default(0)
-  createdAt   DateTime     @default(now())
-  purchases   Purchase[]
-  usageEvents UsageEvent[]
-  resumeProjects ResumeProject[]
-  resumeVersions ResumeVersion[]
+  id              String          @id
+  email           String          @unique
+  credits         Int             @default(0)
+  createdAt       DateTime        @default(now())
+  purchases       Purchase[]
+  usageEvents     UsageEvent[]
+  resumeProjects  ResumeProject[]
+  resumeVersions  ResumeVersion[]
+  supportTickets  SupportTicket[]
 }
 
 model Purchase {
@@ -90,5 +91,19 @@ model ResumeVersion {
   project          ResumeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, runNumber])
+  @@index([userId, createdAt])
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  userId    String
+  subject   String
+  category  String   @default("general")
+  message   String   @db.Text
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
   @@index([userId, createdAt])
 }

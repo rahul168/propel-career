@@ -46,6 +46,22 @@ export async function getUsageEvents(userId: string) {
   return res.rows;
 }
 
+export async function getLatestSupportTicket(userId: string) {
+  const pool = getPool();
+  const res = await pool.query(
+    `SELECT * FROM "SupportTicket" WHERE "userId" = $1 ORDER BY "createdAt" DESC LIMIT 1`,
+    [userId]
+  );
+  await pool.end();
+  return res.rows[0] ?? null;
+}
+
+export async function cleanupSupportTickets(userId: string) {
+  const pool = getPool();
+  await pool.query(`DELETE FROM "SupportTicket" WHERE "userId" = $1`, [userId]);
+  await pool.end();
+}
+
 export async function cleanupTestUser(userId: string) {
   const pool = getPool();
   await pool.query(`DELETE FROM "LlmUsage" WHERE "usageEventId" IN (SELECT id FROM "UsageEvent" WHERE "userId" = $1)`, [userId]);

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const parsed = ticketSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
-      { error: parsed.error.errors[0]?.message ?? "Invalid input" },
+      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
       { status: 400 }
     );
   }

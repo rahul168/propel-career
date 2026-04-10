@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import "./globals.css";
 import "@eigenpal/docx-js-editor/styles.css";
 
@@ -33,6 +34,7 @@ export default function RootLayout({
         <body className="min-h-full flex flex-col bg-slate-50">
           <Navbar />
           <main className="flex-1">{children}</main>
+          <Footer />
           <Toaster richColors position="top-right" />
         </body>
       </html>

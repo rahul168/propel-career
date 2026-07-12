@@ -168,7 +168,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
 ### 4.4 Configure the Webhook
 
 1. In Stripe → **Developers → Webhooks** → **Add endpoint**
-2. Endpoint URL: `https://career.propel8.com/api/stripe/webhook`
+2. Endpoint URL: `https://careerai.propel8.com/api/stripe/webhook`
 3. Select events to listen to:
    - `checkout.session.completed`
 4. After saving, reveal the **Signing secret**:
@@ -250,7 +250,7 @@ DATABASE_URL=postgresql://postgres.xxxx:[PASSWORD]@...pooler...:6543/postgres?pg
 DIRECT_URL=postgresql://postgres.xxxx:[PASSWORD]@...:5432/postgres
 
 # Application
-NEXT_PUBLIC_APP_URL=https://career.propel8.com  # or your Vercel preview URL during initial deploy
+NEXT_PUBLIC_APP_URL=https://careerai.propel8.com  # or your Vercel preview URL during initial deploy
 CREDIT_REMINDER_THRESHOLD=3
 CREDIT_WARNING_THRESHOLD=1
 
@@ -285,7 +285,7 @@ Watch the build logs. Common failures and fixes:
 
 Now that you have the production URL, go to Stripe → **Developers → Webhooks** and add:
 ```
-https://career.propel8.com/api/stripe/webhook
+https://careerai.propel8.com/api/stripe/webhook
 ```
 
 Test the webhook by purchasing credits in production with a real card.
@@ -319,7 +319,7 @@ You can now access the admin dashboard at `/admin`.
 
 ### 7.4 Add Custom Domain
 
-The app is deployed at **career.propel8.com**.
+The app is deployed at **careerai.propel8.com**.
 
 #### Configure DNS
 
@@ -334,16 +334,16 @@ In your DNS provider for `propel8.com`, add a CNAME record:
 #### Configure Vercel
 
 1. In Vercel → your project → **Settings → Domains**
-2. Click **Add** and enter `career.propel8.com`
+2. Click **Add** and enter `careerai.propel8.com`
 3. Vercel will verify the DNS record — this can take a few minutes to propagate
 
 #### Update Services
 
 Once the domain is live, update these three places:
 
-1. **Vercel environment variable** — set `NEXT_PUBLIC_APP_URL=https://career.propel8.com`
-2. **Stripe webhook** — update the endpoint URL to `https://career.propel8.com/api/stripe/webhook`
-3. **Clerk** → **Domains** — add `career.propel8.com` as an allowed domain
+1. **Vercel environment variable** — set `NEXT_PUBLIC_APP_URL=https://careerai.propel8.com`
+2. **Stripe webhook** — update the endpoint URL to `https://careerai.propel8.com/api/stripe/webhook`
+3. **Clerk** → **Domains** — add `careerai.propel8.com` as an allowed domain
 
 ---
 
